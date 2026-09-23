@@ -11,7 +11,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.act4"
+        applicationId = "com.example.proyectofinal"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

@@ -5,8 +5,8 @@ import kotlinx.coroutines.flow.Flow
 class NoteRepository(private val noteDao: NoteDao) {
     val allNotes: Flow<List<Note>> = noteDao.getAll()
 
-    suspend fun insert(note: Note) {
-        noteDao.insert(note)
+    suspend fun insert(note: Note): Long {
+        return noteDao.insert(note)
     }
 
     suspend fun update(note: Note) {

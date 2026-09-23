@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Act4"
+rootProject.name = "ProyectoFinal"
 include(":app")
  

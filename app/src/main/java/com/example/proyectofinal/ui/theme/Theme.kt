@@ -19,7 +19,7 @@ private val AppColorScheme = darkColorScheme(
 )
 
 @Composable
-fun Act4Theme(
+fun ProyectoFinalTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
@@ -27,4 +27,11 @@ fun Act4Theme(
         typography = Typography,
         content = content
     )
+}
+
+@Composable
+fun Act4Theme(
+    content: @Composable () -> Unit
+) {
+    ProyectoFinalTheme(content = content)
 }

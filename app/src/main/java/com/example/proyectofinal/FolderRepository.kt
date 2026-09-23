@@ -16,8 +16,9 @@ class FolderRepository(private val folderDao: FolderDao) {
         folderDao.update(folder)
     }
 
-    //eliminar carpeta
+    //eliminar carpeta y sus notas asociadas
     suspend fun delete(folder: Folder) {
+        folderDao.deleteNotesByFolderId(folder.id)
         folderDao.delete(folder)
     }
 

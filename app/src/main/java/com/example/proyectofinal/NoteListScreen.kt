@@ -30,33 +30,25 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,7 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.proyectofinal.ui.theme.AccentYellow
 import com.example.proyectofinal.ui.theme.BorderColor
-import com.example.proyectofinal.ui.theme.CardBackground
 import com.example.proyectofinal.ui.theme.DarkBackground
 import com.example.proyectofinal.ui.theme.SecondarySurface
 import com.example.proyectofinal.ui.theme.TextPrimary
@@ -87,13 +78,20 @@ fun formatShortDate(dateTime: LocalDateTime): String {
     return dateTime.format(formatter)
 }
 
-//agrupar notas por periodo de tiempo estilo ios
+//agrupar notas por periodo de tiempo estilo ios (Hoy, Ayer, Anteriores 7 dias, Anteriores 30 dias, Mes, Ano)
 fun groupNotesByPeriod(notes: List<Note>): Map<String, List<Note>> {
     val now = LocalDateTime.now()
+    val today = now.toLocalDate()
+    val yesterday = today.minusDays(1)
+    val sevenDaysAgo = now.minusDays(7)
     val thirtyDaysAgo = now.minusDays(30)
 
     return notes.groupBy { note ->
+        val noteDate = note.date.toLocalDate()
         when {
+            noteDate == today -> "Hoy"
+            noteDate == yesterday -> "Ayer"
+            note.date.isAfter(sevenDaysAgo) -> "Anteriores 7 días"
             note.date.isAfter(thirtyDaysAgo) -> "Anteriores 30 días"
             note.date.year == now.year -> {
                 note.date.month.getDisplayName(TextStyle.FULL, Locale.forLanguageTag("es-ES"))
@@ -105,19 +103,16 @@ fun groupNotesByPeriod(notes: List<Note>): Map<String, List<Note>> {
 }
 
 //pantalla de notas de una carpeta estilo ios apple notes
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteListScreen(
     viewModel: NoteViewModel,
     folderName: String = "Notas",
-    onBackClick: (() -> Unit)? = null
+    onBackClick: (() -> Unit)? = null,
+    onNoteClick: ((note: Note) -> Unit)? = null,
+    onNewNoteClick: (() -> Unit)? = null
 ) {
     val notes by viewModel.allNotes.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-
-    var showBottomSheet by remember { mutableStateOf(false) }
-    var editingNote by remember { mutableStateOf<Note?>(null) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val groupedNotes = groupNotesByPeriod(notes)
 
@@ -175,8 +170,7 @@ fun NoteListScreen(
                             .background(SecondarySurface)
                             .border(1.dp, BorderColor, RoundedCornerShape(16.dp))
                             .clickable {
-                                editingNote = null
-                                showBottomSheet = true
+                                onNewNoteClick?.invoke()
                             },
                         contentAlignment = Alignment.Center
                     ) {
@@ -200,13 +194,12 @@ fun NoteListScreen(
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            //barra superior con boton de regresar circular y menu de tres puntos
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (onBackClick != null) {
+            //barra superior con boton de regresar si aplica
+            if (onBackClick != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(
                         modifier = Modifier
                             .size(38.dp)
@@ -222,27 +215,9 @@ fun NoteListScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                } else {
-                    Spacer(modifier = Modifier.width(38.dp))
                 }
-
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(SecondarySurface),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Opciones",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             //titulo de la carpeta y contador de notas
             Text(
@@ -306,9 +281,8 @@ fun NoteListScreen(
                                             SwipeableNoteItemRow(
                                                 note = note,
                                                 onDelete = { viewModel.deleteNote(note) },
-                                                onEdit = {
-                                                    editingNote = note
-                                                    showBottomSheet = true
+                                                onClick = {
+                                                    onNoteClick?.invoke(note)
                                                 }
                                             )
 
@@ -328,48 +302,15 @@ fun NoteListScreen(
                 }
             }
         }
-
-        //modal bottom sheet para crear o editar nota
-        if (showBottomSheet) {
-            ModalBottomSheet(
-                onDismissRequest = { showBottomSheet = false },
-                sheetState = sheetState,
-                containerColor = CardBackground,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-            ) {
-                NoteFormBottomSheet(
-                    noteToEdit = editingNote,
-                    onDismiss = { showBottomSheet = false },
-                    onSave = { title, content ->
-                        if (editingNote != null) {
-                            viewModel.updateNote(
-                                editingNote!!.copy(
-                                    title = title,
-                                    content = content
-                                )
-                            )
-                        } else {
-                            val newNote = Note(
-                                title = title,
-                                content = content,
-                                date = LocalDateTime.now()
-                            )
-                            viewModel.insertNote(newNote)
-                        }
-                        showBottomSheet = false
-                    }
-                )
-            }
-        }
     }
 }
 
-//fila deslizable para eliminar o editar notas
+//fila deslizable para eliminar o abrir nota
 @Composable
 fun SwipeableNoteItemRow(
     note: Note,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onClick: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
     val offsetX = remember { Animatable(0f) }
@@ -403,7 +344,7 @@ fun SwipeableNoteItemRow(
                     .fillMaxWidth()
                     .offset { IntOffset(offsetX.value.roundToInt(), 0) }
                     .background(SecondarySurface)
-                    .clickable { onEdit() }
+                    .clickable { onClick() }
                     .pointerInput(note.id) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
@@ -440,15 +381,30 @@ fun SwipeableNoteItemRow(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    //titulo de la nota
-                    Text(
-                        text = if (note.title.isNotBlank()) note.title else "Nueva nota",
-                        color = TextPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    //titulo de la nota con indicador de recordatorio
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (note.title.isNotBlank()) note.title else "Nueva nota",
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+
+                        if (note.reminderDateTime != null) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Tiene recordatorio activo",
+                                tint = AccentYellow,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(2.dp))
 
@@ -473,131 +429,6 @@ fun SwipeableNoteItemRow(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-//bottomsheet simplificado estilo ios para redactar o editar nota
-@Composable
-fun NoteFormBottomSheet(
-    noteToEdit: Note?,
-    onDismiss: () -> Unit,
-    onSave: (title: String, content: String) -> Unit
-) {
-    var title by remember { mutableStateOf(noteToEdit?.title ?: "") }
-    var content by remember { mutableStateOf(noteToEdit?.content ?: "") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp)
-            .navigationBarsPadding(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        //encabezado y boton de cerrar
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (noteToEdit != null) "Editar nota" else "Nueva nota",
-                style = MaterialTheme.typography.titleLarge,
-                fontSize = 22.sp
-            )
-
-            IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Cerrar",
-                    tint = TextSecondary
-                )
-            }
-        }
-
-        //campo para titulo
-        OutlinedTextField(
-            value = title,
-            onValueChange = { title = it },
-            placeholder = { Text("Título", color = TextSecondary) },
-            modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = BorderColor,
-                unfocusedBorderColor = BorderColor,
-                focusedContainerColor = SecondarySurface,
-                unfocusedContainerColor = SecondarySurface,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary
-            ),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true
-        )
-
-        //campo para contenido de la nota
-        OutlinedTextField(
-            value = content,
-            onValueChange = { content = it },
-            placeholder = { Text("Nota...", color = TextSecondary) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = BorderColor,
-                unfocusedBorderColor = BorderColor,
-                focusedContainerColor = SecondarySurface,
-                unfocusedContainerColor = SecondarySurface,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary
-            ),
-            shape = RoundedCornerShape(12.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        //botones de guardar y cancelar
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SecondarySurface,
-                    contentColor = TextPrimary
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Cancelar")
-            }
-
-            val isValid = title.isNotBlank() || content.isNotBlank()
-            Button(
-                onClick = {
-                    if (isValid) {
-                        onSave(title, content)
-                    }
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                enabled = isValid,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentYellow,
-                    contentColor = Color.Black,
-                    disabledContainerColor = SecondarySurface,
-                    disabledContentColor = TextSecondary
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = if (noteToEdit != null) "Guardar" else "Agregar nota",
-                    color = if (isValid) Color.Black else TextSecondary,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
     }

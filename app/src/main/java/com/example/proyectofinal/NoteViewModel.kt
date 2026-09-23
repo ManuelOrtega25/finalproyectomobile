@@ -64,9 +64,10 @@ class NoteViewModel(private val repository: NoteRepository) : ViewModel() {
         _selectedCategory.value = category
     }
 
-    fun insertNote(note: Note) {
+    fun insertNote(note: Note, onInserted: ((Long) -> Unit)? = null) {
         viewModelScope.launch {
-            repository.insert(note.copy(folderId = _selectedFolderId.value))
+            val id = repository.insert(note.copy(folderId = _selectedFolderId.value))
+            onInserted?.invoke(id)
         }
     }
 

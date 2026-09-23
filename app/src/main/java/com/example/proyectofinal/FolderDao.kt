@@ -33,6 +33,10 @@ interface FolderDao {
     @Delete
     suspend fun delete(folder: Folder)
 
+    //eliminar todas las notas asociadas a una carpeta
+    @Query("DELETE FROM notes WHERE folderId = :folderId")
+    suspend fun deleteNotesByFolderId(folderId: Long)
+
     //obtener carpeta por su id
     @Query("SELECT * FROM folders WHERE id = :id")
     suspend fun getFolderById(id: Long): Folder?

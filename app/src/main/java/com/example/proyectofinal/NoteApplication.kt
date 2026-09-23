@@ -22,6 +22,9 @@ class NoteApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Crear canal de notificaciones para recordatorios
+        NotificationHelper.createNotificationChannel(this)
+
         // Inicializar carpetas por defecto si la base de datos está vacía
         CoroutineScope(Dispatchers.IO).launch {
             if (folderRepository.getFolderCount() == 0) {

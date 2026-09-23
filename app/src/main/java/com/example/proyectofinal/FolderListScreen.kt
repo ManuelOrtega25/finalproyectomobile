@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.proyectofinal.ui.theme.AccentYellow
@@ -219,8 +220,15 @@ fun FolderListScreen(
             }
         }
 
-        //dialogo modal para crear nueva carpeta con selector de icono
+        //dialogo modal para crear nueva carpeta con selector de icono y validaciones avanzadas
         if (showCreateDialog) {
+            val trimmedName = newFolderName.trim()
+            val isDuplicate = foldersWithCount.any { it.folder.name.trim().equals(trimmedName, ignoreCase = true) }
+            val isTooLong = newFolderName.length > 25
+            val isBlank = trimmedName.isBlank()
+            val hasError = (newFolderName.isNotBlank() && isDuplicate) || isTooLong
+            val isValid = !isBlank && !isDuplicate && !isTooLong
+
             AlertDialog(
                 onDismissRequest = { showCreateDialog = false },
                 containerColor = SecondarySurface,
@@ -240,9 +248,38 @@ fun FolderListScreen(
                             onValueChange = { newFolderName = it },
                             placeholder = { Text("Nombre de la carpeta", color = TextSecondary) },
                             singleLine = true,
+                            isError = hasError,
+                            supportingText = {
+                                when {
+                                    newFolderName.isNotBlank() && isDuplicate -> {
+                                        Text(
+                                            text = "Ya existe una carpeta con este nombre",
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    isTooLong -> {
+                                        Text(
+                                            text = "Máximo 25 caracteres permitidos",
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    else -> {
+                                        Text(
+                                            text = "${newFolderName.length}/25",
+                                            color = TextSecondary,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.End
+                                        )
+                                    }
+                                }
+                            },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = AccentYellow,
                                 unfocusedBorderColor = BorderColor,
+                                errorBorderColor = MaterialTheme.colorScheme.error,
                                 focusedTextColor = TextPrimary,
                                 unfocusedTextColor = TextPrimary
                             ),
@@ -271,17 +308,17 @@ fun FolderListScreen(
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(if (isSelected) BorderColor else Color.Transparent)
                                         .border(
-                                            width = if (isSelected) 2.dp else 1.dp,
-                                            color = if (isSelected) AccentYellow else BorderColor,
-                                            shape = RoundedCornerShape(12.dp)
-                                        )
+                                             width = if (isSelected) 2.dp else 1.dp,
+                                             color = if (isSelected) AccentYellow else BorderColor,
+                                             shape = RoundedCornerShape(12.dp)
+                                         )
                                         .clickable { selectedIconName = iconName }
                                         .padding(6.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Image(
                                         painter = painterResource(getFolderIconRes(iconName)),
-                                        contentDescription = null,
+                                        contentDescription = "Icono $iconName",
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
@@ -292,18 +329,21 @@ fun FolderListScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            if (newFolderName.isNotBlank()) {
+                            if (isValid) {
                                 folderViewModel.createFolder(
-                                    name = newFolderName.trim(),
+                                    name = trimmedName,
                                     iconName = selectedIconName
                                 )
                                 newFolderName = ""
                                 showCreateDialog = false
                             }
                         },
+                        enabled = isValid,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AccentYellow,
-                            contentColor = Color.Black
+                            contentColor = Color.Black,
+                            disabledContainerColor = SecondarySurface,
+                            disabledContentColor = TextSecondary
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
