@@ -91,62 +91,139 @@ import com.example.proyectofinal.ui.theme.SecondarySurface
 import com.example.proyectofinal.ui.theme.TextPrimary
 import com.example.proyectofinal.ui.theme.TextSecondary
 
-//transformador visual para procesar negrita (**), cursiva (*) y subrayado (<u>) en tiempo real
+//transformador visual para procesar negrita (**), cursiva (*) y subrayado (<u>) en tiempo real con mapeo seguro de offsets
 class MarkdownVisualTransformation : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val rawText = text.text
         val builder = AnnotatedString.Builder()
 
-        var i = 0
-        while (i < rawText.length) {
+        val rawToTransformed = IntArray(rawText.length + 1)
+        val transformedToRawList = mutableListOf<Int>()
+
+        var rawIndex = 0
+        var transformedIndex = 0
+
+        while (rawIndex < rawText.length) {
             when {
                 // Negrita: **texto**
-                rawText.startsWith("**", i) -> {
-                    val end = rawText.indexOf("**", i + 2)
+                rawText.startsWith("**", rawIndex) -> {
+                    val end = rawText.indexOf("**", rawIndex + 2)
                     if (end != -1) {
+                        val innerText = rawText.substring(rawIndex + 2, end)
+
+                        rawToTransformed[rawIndex] = transformedIndex
+                        rawToTransformed[rawIndex + 1] = transformedIndex
+
                         builder.withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                            append(rawText.substring(i + 2, end))
+                            append(innerText)
                         }
-                        i = end + 2
+
+                        for (k in 0 until innerText.length) {
+                            transformedToRawList.add(rawIndex + 2 + k)
+                            rawToTransformed[rawIndex + 2 + k] = transformedIndex + k
+                        }
+                        transformedIndex += innerText.length
+
+                        rawToTransformed[end] = transformedIndex
+                        rawToTransformed[end + 1] = transformedIndex
+
+                        rawIndex = end + 2
                     } else {
-                        builder.append(rawText[i])
-                        i++
+                        rawToTransformed[rawIndex] = transformedIndex
+                        transformedToRawList.add(rawIndex)
+                        builder.append(rawText[rawIndex])
+                        rawIndex++
+                        transformedIndex++
                     }
                 }
                 // Subrayado: <u>texto</u>
-                rawText.startsWith("<u>", i) -> {
-                    val end = rawText.indexOf("</u>", i + 3)
+                rawText.startsWith("<u>", rawIndex) -> {
+                    val end = rawText.indexOf("</u>", rawIndex + 3)
                     if (end != -1) {
+                        val innerText = rawText.substring(rawIndex + 3, end)
+
+                        rawToTransformed[rawIndex] = transformedIndex
+                        rawToTransformed[rawIndex + 1] = transformedIndex
+                        rawToTransformed[rawIndex + 2] = transformedIndex
+
                         builder.withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) {
-                            append(rawText.substring(i + 3, end))
+                            append(innerText)
                         }
-                        i = end + 4
+
+                        for (k in 0 until innerText.length) {
+                            transformedToRawList.add(rawIndex + 3 + k)
+                            rawToTransformed[rawIndex + 3 + k] = transformedIndex + k
+                        }
+                        transformedIndex += innerText.length
+
+                        rawToTransformed[end] = transformedIndex
+                        rawToTransformed[end + 1] = transformedIndex
+                        rawToTransformed[end + 2] = transformedIndex
+                        rawToTransformed[end + 3] = transformedIndex
+
+                        rawIndex = end + 4
                     } else {
-                        builder.append(rawText[i])
-                        i++
+                        rawToTransformed[rawIndex] = transformedIndex
+                        transformedToRawList.add(rawIndex)
+                        builder.append(rawText[rawIndex])
+                        rawIndex++
+                        transformedIndex++
                     }
                 }
                 // Cursiva: *texto*
-                rawText.startsWith("*", i) -> {
-                    val end = rawText.indexOf("*", i + 1)
-                    if (end != -1) {
+                rawText.startsWith("*", rawIndex) && !rawText.startsWith("**", rawIndex) -> {
+                    val end = rawText.indexOf("*", rawIndex + 1)
+                    if (end != -1 && (end == rawIndex + 1 || rawText[end - 1] != '*')) {
+                        val innerText = rawText.substring(rawIndex + 1, end)
+
+                        rawToTransformed[rawIndex] = transformedIndex
+
                         builder.withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                            append(rawText.substring(i + 1, end))
+                            append(innerText)
                         }
-                        i = end + 1
+
+                        for (k in 0 until innerText.length) {
+                            transformedToRawList.add(rawIndex + 1 + k)
+                            rawToTransformed[rawIndex + 1 + k] = transformedIndex + k
+                        }
+                        transformedIndex += innerText.length
+
+                        rawToTransformed[end] = transformedIndex
+
+                        rawIndex = end + 1
                     } else {
-                        builder.append(rawText[i])
-                        i++
+                        rawToTransformed[rawIndex] = transformedIndex
+                        transformedToRawList.add(rawIndex)
+                        builder.append(rawText[rawIndex])
+                        rawIndex++
+                        transformedIndex++
                     }
                 }
                 else -> {
-                    builder.append(rawText[i])
-                    i++
+                    rawToTransformed[rawIndex] = transformedIndex
+                    transformedToRawList.add(rawIndex)
+                    builder.append(rawText[rawIndex])
+                    rawIndex++
+                    transformedIndex++
                 }
             }
         }
+        rawToTransformed[rawText.length] = transformedIndex
+        transformedToRawList.add(rawText.length)
+        val transformedToRaw = transformedToRawList.toIntArray()
 
-        return TransformedText(builder.toAnnotatedString(), OffsetMapping.Identity)
+        val transformedText = builder.toAnnotatedString()
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                return if (offset in rawToTransformed.indices) rawToTransformed[offset] else transformedText.length
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                return if (offset in transformedToRaw.indices) transformedToRaw[offset] else rawText.length
+            }
+        }
+
+        return TransformedText(transformedText, offsetMapping)
     }
 }
 
@@ -242,20 +319,29 @@ fun NoteDetailScreen(
         val text = contentValue.text
         val selection = contentValue.selection
 
-        val newText = if (selection.collapsed) {
-            val before = text.substring(0, selection.start)
-            val after = text.substring(selection.start)
-            "$before$prefix$suffix$after"
+        val newText: String
+        val newSelection: androidx.compose.ui.text.TextRange
+
+        if (selection.collapsed) {
+            val start = selection.start.coerceIn(0, text.length)
+            val before = text.substring(0, start)
+            val after = text.substring(start)
+            newText = "$before$prefix$suffix$after"
+            val cursor = start + prefix.length
+            newSelection = androidx.compose.ui.text.TextRange(cursor, cursor)
         } else {
-            val before = text.substring(0, selection.start)
-            val selected = text.substring(selection.start, selection.end)
-            val after = text.substring(selection.end)
-            "$before$prefix$selected$suffix$after"
+            val start = minOf(selection.start, selection.end).coerceIn(0, text.length)
+            val end = maxOf(selection.start, selection.end).coerceIn(0, text.length)
+            val before = text.substring(0, start)
+            val selected = text.substring(start, end)
+            val after = text.substring(end)
+            newText = "$before$prefix$selected$suffix$after"
+            newSelection = androidx.compose.ui.text.TextRange(start + prefix.length, end + prefix.length)
         }
 
         contentValue = TextFieldValue(
             text = newText,
-            selection = selection
+            selection = newSelection
         )
     }
 
