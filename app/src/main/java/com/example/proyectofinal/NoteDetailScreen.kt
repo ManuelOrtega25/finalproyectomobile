@@ -195,6 +195,7 @@ fun NoteDetailScreen(
     var showReminderDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var isDeleted by remember { mutableStateOf(false) }
+    var hasSaved by remember { mutableStateOf(false) }
 
     //lanzador para solicitar permisos de notificacion en Android 13+
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -211,9 +212,9 @@ fun NoteDetailScreen(
         }
     }
 
-    //funcion para guardar la nota solo si ha cambiado y no se ha eliminado
+    //funcion para guardar la nota solo si ha cambiado, no se ha eliminado y no se ha guardado ya
     fun saveCurrentNote() {
-        if (!isDeleted) {
+        if (!isDeleted && !hasSaved) {
             if (title.isNotBlank() || contentValue.text.isNotBlank() || !selectedImageUri.isNullOrBlank() || selectedReminderDateTime != null) {
                 val isChanged = note == null ||
                         note.title != title ||
@@ -222,6 +223,7 @@ fun NoteDetailScreen(
                         note.reminderDateTime != selectedReminderDateTime
 
                 if (isChanged) {
+                    hasSaved = true
                     onSaveNote(note, title, contentValue.text, selectedImageUri, selectedReminderDateTime)
                 }
             }

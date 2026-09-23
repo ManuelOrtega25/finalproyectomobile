@@ -88,8 +88,6 @@ class MainActivity : ComponentActivity() {
                                             reminderDateTime = reminderDateTime
                                         )
                                         noteViewModel.insertNote(newNote) { insertedId ->
-                                            val insertedNote = newNote.copy(id = insertedId)
-                                            activeNoteState = insertedNote
                                             if (reminderDateTime != null) {
                                                 NotificationHelper.scheduleReminder(
                                                     context = this@MainActivity,
